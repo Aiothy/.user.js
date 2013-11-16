@@ -7,6 +7,7 @@
 // @match      http://teach.xujc.com/*
 // @match      http://teach.xujc.cn/*
 // @require    http://code.jquery.com/jquery-latest.js
+// @updateURL
 // ==/UserScript==
 ###
 
@@ -150,7 +151,7 @@ CHAR_HEIGHT = 10
 threshold = (r,g,b) ->
     return ((r>>2)+(g>>1)+(b>>2))>200
 
-decode = (result) ->
+parseResult = (result) ->
     max = -1
     flag = -1
     for i in [0...result.length]
@@ -159,37 +160,34 @@ decode = (result) ->
             flag = i
     return String.fromCharCode(65+(26-flag-1))
 
-canvas = document.createElement("canvas")
-canvas.width = IMG_WIDTH
-canvas.height = IMG_HEIGHT
-ctx = canvas.getContext("2d")
+decode = (img) ->
+    canvas = document.createElement("canvas")
+    canvas.width = IMG_WIDTH
+    canvas.height = IMG_HEIGHT
+    ctx = canvas.getContext("2d")
+    ctx.drawImage(img,0,0)
+
+    code = ""
+
+    for i in [0..3]
+        feature = (0 for x in [0...CHAR_WIDTH+CHAR_HEIGHT])
+        char = ctx.getImageData(3+i*12, 4, CHAR_WIDTH, CHAR_HEIGHT)
+        for p in [0...CHAR_WIDTH*CHAR_HEIGHT*4] by 4
+            if threshold(char.data[p+0],char.data[p+1],char.data[p+2])
+                feature[(p/4>>0)%CHAR_WIDTH]++
+                feature[CHAR_WIDTH+(p/4>>0)/CHAR_WIDTH>>0]++
+        result = net.run(x/CHAR_HEIGHT for x in feature)
+        code += parseResult(result)
+    
+    console.log(code)
+    return code
 
 $(() ->
-    console.log("search <img src='image.php'> ...")
-    console.log($('img[src="image.php"]'))
-    $('img[src="image.php"]').load(() ->
-        console.log($(this))
-        ctx.drawImage($(this).get(0),0,0)
-        code = ""
-
-        for i in [0..3]
-            feature = (0 for x in [0...CHAR_WIDTH+CHAR_HEIGHT])
-            char = ctx.getImageData(3+i*12, 4, CHAR_WIDTH, CHAR_HEIGHT)
-            for p in [0...CHAR_WIDTH*CHAR_HEIGHT*4] by 4
-                if threshold(char.data[p+0],char.data[p+1],char.data[p+2])
-                    feature[(p/4>>0)%CHAR_WIDTH]++
-                    feature[CHAR_WIDTH+(p/4>>0)/CHAR_WIDTH>>0]++
-            result = net.run(x/CHAR_HEIGHT for x in feature)
-            
-            code += decode(result)
-
-        console.log("code is "+code);
-        console.log("search <input name='code'> ...")
-        $('input[name="code"]').val(code)
-        
-        console.log("well done!")
-    ).each(() ->
-        if this.complete
-            $(this).load();
-    );
-);
+    $('input[name="code"]').focus(() ->
+        console.log("search <img src='image.php'> ...")
+        console.log($('img[src="image.php"]'))
+        img = $('img[src="image.php"]').get(0)
+        if img.complete
+           $(this).val decode(img)
+    )
+)

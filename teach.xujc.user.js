@@ -8,12 +8,13 @@
 // @match      http://teach.xujc.com/*
 // @match      http://teach.xujc.cn/*
 // @require    http://code.jquery.com/jquery-latest.js
+// @updateURL
 // ==/UserScript==
 */
 
 
 (function() {
-  var Arc, CHAR_HEIGHT, CHAR_WIDTH, HiddenNode, IMG_HEIGHT, IMG_WIDTH, InputNode, Net, Node, OutputNode, canvas, ctx, data, decode, net, sigmoidTransfer, threshold,
+  var Arc, CHAR_HEIGHT, CHAR_WIDTH, HiddenNode, IMG_HEIGHT, IMG_WIDTH, InputNode, Net, Node, OutputNode, data, decode, net, parseResult, sigmoidTransfer, threshold,
     __hasProp = {}.hasOwnProperty,
     __extends = function(child, parent) { for (var key in parent) { if (__hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; };
 
@@ -251,7 +252,7 @@
     return ((r >> 2) + (g >> 1) + (b >> 2)) > 200;
   };
 
-  decode = function(result) {
+  parseResult = function(result) {
     var flag, i, max, _i, _ref;
     max = -1;
     flag = -1;
@@ -264,56 +265,53 @@
     return String.fromCharCode(65 + (26 - flag - 1));
   };
 
-  canvas = document.createElement("canvas");
-
-  canvas.width = IMG_WIDTH;
-
-  canvas.height = IMG_HEIGHT;
-
-  ctx = canvas.getContext("2d");
+  decode = function(img) {
+    var canvas, char, code, ctx, feature, i, p, result, x, _i, _j, _ref;
+    canvas = document.createElement("canvas");
+    canvas.width = IMG_WIDTH;
+    canvas.height = IMG_HEIGHT;
+    ctx = canvas.getContext("2d");
+    ctx.drawImage(img, 0, 0);
+    code = "";
+    for (i = _i = 0; _i <= 3; i = ++_i) {
+      feature = (function() {
+        var _j, _ref, _results;
+        _results = [];
+        for (x = _j = 0, _ref = CHAR_WIDTH + CHAR_HEIGHT; 0 <= _ref ? _j < _ref : _j > _ref; x = 0 <= _ref ? ++_j : --_j) {
+          _results.push(0);
+        }
+        return _results;
+      })();
+      char = ctx.getImageData(3 + i * 12, 4, CHAR_WIDTH, CHAR_HEIGHT);
+      for (p = _j = 0, _ref = CHAR_WIDTH * CHAR_HEIGHT * 4; _j < _ref; p = _j += 4) {
+        if (threshold(char.data[p + 0], char.data[p + 1], char.data[p + 2])) {
+          feature[(p / 4 >> 0) % CHAR_WIDTH]++;
+          feature[CHAR_WIDTH + (p / 4 >> 0) / CHAR_WIDTH >> 0]++;
+        }
+      }
+      result = net.run((function() {
+        var _k, _len, _results;
+        _results = [];
+        for (_k = 0, _len = feature.length; _k < _len; _k++) {
+          x = feature[_k];
+          _results.push(x / CHAR_HEIGHT);
+        }
+        return _results;
+      })());
+      code += parseResult(result);
+    }
+    console.log(code);
+    return code;
+  };
 
   $(function() {
-    console.log("search <img src='image.php'> ...");
-    console.log($('img[src="image.php"]'));
-    return $('img[src="image.php"]').load(function() {
-      var char, code, feature, i, p, result, x, _i, _j, _ref;
-      console.log($(this));
-      ctx.drawImage($(this).get(0), 0, 0);
-      code = "";
-      for (i = _i = 0; _i <= 3; i = ++_i) {
-        feature = (function() {
-          var _j, _ref, _results;
-          _results = [];
-          for (x = _j = 0, _ref = CHAR_WIDTH + CHAR_HEIGHT; 0 <= _ref ? _j < _ref : _j > _ref; x = 0 <= _ref ? ++_j : --_j) {
-            _results.push(0);
-          }
-          return _results;
-        })();
-        char = ctx.getImageData(3 + i * 12, 4, CHAR_WIDTH, CHAR_HEIGHT);
-        for (p = _j = 0, _ref = CHAR_WIDTH * CHAR_HEIGHT * 4; _j < _ref; p = _j += 4) {
-          if (threshold(char.data[p + 0], char.data[p + 1], char.data[p + 2])) {
-            feature[(p / 4 >> 0) % CHAR_WIDTH]++;
-            feature[CHAR_WIDTH + (p / 4 >> 0) / CHAR_WIDTH >> 0]++;
-          }
-        }
-        result = net.run((function() {
-          var _k, _len, _results;
-          _results = [];
-          for (_k = 0, _len = feature.length; _k < _len; _k++) {
-            x = feature[_k];
-            _results.push(x / CHAR_HEIGHT);
-          }
-          return _results;
-        })());
-        code += decode(result);
-      }
-      console.log("code is " + code);
-      console.log("search <input name='code'> ...");
-      $('input[name="code"]').val(code);
-      return console.log("well done!");
-    }).each(function() {
-      if (this.complete) {
-        return $(this).load();
+    return $('input[name="code"]').focus(function() {
+      var img;
+      console.log("search <img src='image.php'> ...");
+      console.log($('img[src="image.php"]'));
+      img = $('img[src="image.php"]').get(0);
+      if (img.complete) {
+        return $(this).val(decode(img));
       }
     });
   });
